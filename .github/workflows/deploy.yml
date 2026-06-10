@@ -4,13 +4,13 @@ on:
   push:
     branches:
       - main
+      - feature-new-grade  # 💡 核心改动：允许新分支触发自动化构建与部署
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -37,8 +37,9 @@ jobs:
           username: ${{ secrets.HOST_USER_NAME }}
           key: ${{ secrets.HOST_SSH_PRIVATE_KEY }}
           port: 22
-          source: "docker-compose.yml"
-          target: "/home/ubuntu/backend"
+          # 💡 核心改动：把两个版本的 compose 配置文件同时传上云端服务器，做到双重保险
+          source: "docker-compose.yml,docker-compose-prod.yml"
+          target: "/home/ubuntu/lab11-backend"  # 💡 修正为真实的云端后端历史部署路径
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.4
@@ -48,16 +49,22 @@ jobs:
           key: ${{ secrets.HOST_SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd /home/ubuntu/backend
+            cd /home/ubuntu/lab11-backend
 
             echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login \
-            --username ${{ secrets.DOCKER_HUB_USERNAME }} \
-            --password-stdin
+              --username ${{ secrets.DOCKER_HUB_USERNAME }} \
+              --password-stdin
 
-            docker compose down
-
-            docker compose pull
-
-            docker compose up -d
-
-            rm -rf /home/ubuntu/backend
+            if [ "${{ github.ref_name }}" = "feature-new-grade" ]; then
+              echo "Deploying production variant (Branch: feature-new-grade) on Port 8083..."
+              docker-compose -f docker-compose-prod.yml down
+              docker-compose -f docker-compose-prod.yml pull
+              docker-compose -f docker-compose-prod.yml up -d
+            else
+              echo "Deploying default variant (Branch: main) on Port 8082..."
+              docker-compose down
+              docker-compose pull
+              docker-compose up -d
+            fi
+            
+            

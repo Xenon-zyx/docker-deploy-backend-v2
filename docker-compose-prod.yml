@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  backend-prod:
+    image: xenon0501/234-deploylab-backend:latest
+    pull_policy: always
+    ports:
+      - "8083:8080"  # 👈 将 8083 端口映射到容器内部的 8080
+    restart: unless-stopped
